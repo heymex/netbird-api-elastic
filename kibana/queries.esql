@@ -1,0 +1,20 @@
+// Okta system events that share a public IP with a current NetBird peer.
+// Paste into Discover → ES|QL. Set the time picker to the Okta window you care
+// about (Last 7 days is a start). @timestamp on the result is the Okta event.
+//
+// Join key is source.ip: the peer's connection IP and the Okta client IP.
+// Peer documents have no email. Okta host.name is one log-source value, and
+// on a match it is replaced by the peer name. Read the person from
+// okta.actor.alternate_id. Read the peer from host.hostname.
+//
+// LOOKUP JOIN only accepts netbird-peer-lookup (index.mode: lookup). One
+// public IP can belong to more than one peer; those Okta events repeat once
+// per peer. netbird-api index rebuilds the lookup index with each full peer pull.
+
+FROM logs-okta.system-default
+| WHERE data_stream.dataset == "okta.system" AND source.ip IS NOT NULL
+| LOOKUP JOIN netbird-peer-lookup ON source.ip
+| WHERE netbird.peer_id IS NOT NULL
+| KEEP @timestamp, okta.event_type, event.action, event.outcome, okta.actor.alternate_id, okta.actor.display_name, user.email, source.ip, netbird.peer_id, host.hostname, netbird.dns_label, netbird.connected, netbird.last_seen
+| SORT @timestamp DESC
+| LIMIT 200
