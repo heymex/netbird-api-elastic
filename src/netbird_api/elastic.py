@@ -51,6 +51,8 @@ def index_peers(
     ``lookup_index`` is rebuilt from the same snapshot for ES|QL LOOKUP JOIN.
     """
     stats = {"bronze": 0, "current": 0, "removed": 0, "lookup": 0}
+    if current_index and not documents:
+        raise ValueError("refusing to replace current snapshot with an empty document list")
     if bronze_index:
         stats["bronze"] = _bulk(es, bronze_index, documents, op_type="create", with_id=False)
     if current_index:

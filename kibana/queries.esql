@@ -1,20 +1,48 @@
-// Okta system events that share a public IP with a current NetBird peer.
-// Paste into Discover → ES|QL. Set the time picker to the Okta window you care
-// about (Last 7 days is a start). @timestamp on the result is the Okta event.
-//
-// Join key is source.ip: the peer's connection IP and the Okta client IP.
-// Peer documents have no email. Okta host.name is one log-source value, and
-// on a match it is replaced by the peer name. Read the person from
-// okta.actor.alternate_id. Read the peer from host.hostname.
-//
-// LOOKUP JOIN only accepts netbird-peer-lookup (index.mode: lookup). One
-// public IP can belong to more than one peer; those Okta events repeat once
-// per peer. netbird-api index rebuilds the lookup index with each full peer pull.
+// Example ES|QL queries for NetBird peer and audit data.
+// Paste into Kibana → Discover → ES|QL. Set the time picker to the window
+// you care about.
 
-FROM logs-okta.system-default
-| WHERE data_stream.dataset == "okta.system" AND source.ip IS NOT NULL
-| LOOKUP JOIN netbird-peer-lookup ON source.ip
-| WHERE netbird.peer_id IS NOT NULL
-| KEEP @timestamp, okta.event_type, event.action, event.outcome, okta.actor.alternate_id, okta.actor.display_name, user.email, source.ip, netbird.peer_id, host.hostname, netbird.dns_label, netbird.connected, netbird.last_seen
+// --- Peer state ---
+
+// Currently connected peers
+FROM logs-netbird.peer-*
+| WHERE netbird.connected == true
+| KEEP @timestamp, host.name, host.ip, netbird.peer_id, netbird.user_id, netbird.last_seen
 | SORT @timestamp DESC
 | LIMIT 200
+
+// Peer connection history (bronze data stream)
+FROM logs-netbird.peer-*
+| WHERE host.name == "laptop.local"
+| KEEP @timestamp, netbird.connected, netbird.last_seen, source.ip
+| SORT @timestamp DESC
+| LIMIT 500
+
+// --- Audit events ---
+
+// Recent audit activity
+FROM logs-netbird.audit
+| KEEP @timestamp, event.action, event.category, event.type, user.name, user.email, netbird.target_id
+| SORT @timestamp DESC
+| LIMIT 200
+
+// Failed or denied actions
+FROM logs-netbird.audit
+| WHERE event.outcome != "success"
+| KEEP @timestamp, event.action, user.name, user.email
+| SORT @timestamp DESC
+| LIMIT 200
+
+// --- LOOKUP JOIN example ---
+// LOOKUP JOIN only accepts netbird-peer-lookup (index.mode: lookup).
+// One public IP can belong to more than one peer; those events repeat once
+// per peer. netbird-api index rebuilds the lookup index with each full peer pull.
+
+// Example: enrich another log source with NetBird peer data by source.ip
+// FROM logs-other.log-*
+// | WHERE source.ip IS NOT NULL
+// | LOOKUP JOIN netbird-peer-lookup ON source.ip
+// | WHERE netbird.peer_id IS NOT NULL
+// | KEEP @timestamp, source.ip, netbird.peer_id, host.hostname, netbird.dns_label, netbird.connected, netbird.last_seen
+// | SORT @timestamp DESC
+// | LIMIT 200

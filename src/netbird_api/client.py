@@ -11,6 +11,15 @@ import requests
 Transport = Callable[..., Any]
 
 
+def _version() -> str:
+    """Return the package version, or 'unknown' if not installed."""
+    try:
+        from importlib.metadata import version
+        return version("netbird-api")
+    except Exception:
+        return "unknown"
+
+
 class NetBirdError(RuntimeError):
     def __init__(self, message: str, status: int | None = None) -> None:
         super().__init__(message)
@@ -76,7 +85,7 @@ class NetBirdClient:
         self.timeout = timeout
         self._transport = transport
         self._http = requests.Session()
-        self._http.headers["User-Agent"] = "rctc-netbird-api/0.1"
+        self._http.headers["User-Agent"] = f"netbird-api/{_version()}"
         self._http.headers["Accept"] = "application/json"
         self._http.headers["Authorization"] = f"Token {token}"
 

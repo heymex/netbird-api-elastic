@@ -1,26 +1,16 @@
-# AGENTS.md — NetBird management API
-
-Read-only client for the self-hosted NetBird management API. The server is
-deployed by `rctc-linux-ansible` (`roles/netbird_server`, host `netbird-mvp`).
-Design context is in `rctc-net-vpn`.
+# Deployment Notes
 
 ## Hard rules
 
-- Secrets stay in `.env`. Never commit a personal access token, owner password,
-  or dashboard hostname that is not already public in another repo.
+- Secrets stay in `.env`. Never commit a personal access token or dashboard
+  hostname.
 - Authenticate with a **service-user PAT**: `Authorization: Token <pat>`.
   Do not use the owner password or a browser session cookie.
-- The API base is `<dashboard origin>/api` on that host. Do not call
-  `api.netbird.io`.
-- This package is **GET-only**. Do not add POST, PUT, PATCH, or DELETE until
-  an operator asks for a specific write and this file is updated in the same
-  change.
-- TLS verification stays on. The edge certificate is Let's Encrypt via the
-  Ansible role. Do not default `NETBIRD_VERIFY_TLS` to false.
+- The API base is `<dashboard origin>/api` on your NetBird host.
+- This package is **GET-only**. Do not add POST, PUT, PATCH, or DELETE.
+- TLS verification stays on. Do not default `NETBIRD_VERIFY_TLS` to false.
 - `probe` is the first live call. It authenticates with `GET /api/accounts`.
-  `GET /api/users/current` returns 403 for service users. Do not switch the
-  base URL to port 33073 — that port is for the multi-container guide and is
-  not published here.
+  `GET /api/users/current` returns 403 for service users.
 - Collect peers and audit events only. Do not call `/api/users` to build a
   user index. Initiator name and email on an audit event are already on the
   event. A peer's `user_id` may be stored; do not join it to a user record.
@@ -44,4 +34,5 @@ src/netbird_api/ecs.py       Peer state and audit event documents
 src/netbird_api/elastic.py   Templates, peer snapshot, audit insert
 src/netbird_api/cli.py       probe, get, export, index
 src/netbird_api/config.py    .env
+src/netbird_api/templates.py Elasticsearch index templates
 ```
